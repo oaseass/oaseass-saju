@@ -1,0 +1,37 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>오아시스 운세 — 클라우드 미니앱</title>
+</head>
+<body style="font-family:sans-serif;max-width:920px;margin:20px auto;padding:0 12px">
+  <h1>오아시스 운세 — 클라우드 미니앱</h1>
+  <p>이 페이지는 서버가 함께 서빙합니다. 아래 버튼을 누르면 실제 API가 순서대로 호출됩니다.</p>
+  <button id="go">분석 시작</button>
+  <pre id="out" style="white-space:pre-wrap;background:#f6f8fa;padding:12px;border-radius:8px;margin-top:12px"></pre>
+  <script>
+  const out = document.getElementById('out');
+  document.getElementById('go').onclick = async () => {
+    out.textContent = '사주 계산 중...';
+    const saju = await fetch('/v1/saju/compute', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({birth_ts:'1990-05-10T14:30:00Z', calendar:'solar', gender:'unknown', tz:'Asia/Seoul', place:'Seoul'})
+    }).then(r=>r.json());
+
+    out.textContent += '\\n관상 분석 중...';
+    const face = await fetch('/v1/face/extract', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({image_base64:'abc'})
+    }).then(r=>r.json());
+
+    out.textContent += '\\n리포트 합성 중...';
+    const rep = await fetch('/v1/report/compose', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({saju:saju, face:face, goal:'business', locale:'ko-KR'})
+    }).then(r=>r.json());
+
+    out.textContent = JSON.stringify(rep, null, 2);
+  };
+  </script>
+</body>
+</html>
