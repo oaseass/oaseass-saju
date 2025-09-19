@@ -44,4 +44,106 @@ $("go").onclick=async()=>{const out=$("out"); const birthIso=new Date($("birth")
   }catch(e){ out.textContent="에러: "+(e?.message||e); }
 };
 </script>
+  <script>
+const $=id=>document.getElementById(id);
+let imageB64=null;
+
+// ① 안전한 POST(JSON) 헬퍼: JSON 아니면 텍스트로 에러 표시
+async function postJSON(url, body){
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  const ct = r.headers.get("content-type") || "";
+  const txt = await r.text();
+  if(!r.ok){
+    throw new Error(`HTTP ${r.status} ${r.statusText}\n${txt.slice(0,300)}`);
+  }
+  if(ct.includes("application/json")){
+    try { return JSON.parse(txt); } 
+    catch(e){ throw new Error(`JSON 파싱 실패\n${txt.slice(0,300)}`); }
+  }
+  // JSON 아닌 응답(HTML 등)도 그대로 보여줌
+  throw new Error(`서버가 JSON이 아닌 응답을 보냈습니다.\n${txt.slice(0,300)}`);
+}
+
+// ② 이미지 축소 전송(용량↓): 640px 기준 JPEG 변환
+async function fileToDataURLResized(file, maxSide=640, quality=0.8){
+  const dataUrl = await new Promise((res,rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=> res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+  // 이미지 로드
+  const img = await new Promise((res,rej)=>{
+    const im = new Image();
+    im.onload = ()=> res(im);
+    im.onerror = rej;
+    im.src = dataUrl;
+  });
+  // 리사이즈 계산
+  let {width:w, height:h} = img;
+  const scale = Math.min(1, maxSide/Math.max(w,h));
+  const nw = Math.max(1, Math.round(w*scale));
+  const nh = Math.max(1, Math.round(h*scale));
+  // 캔버스 리사이즈 + JPEG로 압축
+  const canvas = document.createElement("canvas");
+  canvas.width = nw; canvas.height = nh;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, nw, nh);
+  return canvas.toDataURL("image/jpeg", quality); // data:image/jpeg;base64,...
+}
+
+// 파일 선택 → 미리보기 + 축소본 만들기
+$("file").addEventListener("change", async (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  try{
+    const resized = await fileToDataURLResized(f, 640, 0.8);
+    imageB64 = resized;
+    $("preview").src = resized;
+    $("preview").style.display = "inline-block";
+  }catch(err){
+    console.error(err);
+    imageB64 = null;
+    $("preview").style.display = "none";
+    alert("이미지 처리 중 오류가 발생했습니다.");
+  }
+});
+
+$("go").onclick = async ()=>{
+  const out = $("out");
+  out.textContent = "";
+  const birthIso = new Date($("birth").value).toISOString();
+
+  const sajuBody = {
+    birth_ts: birthIso,
+    calendar: $("calendar").value,
+    gender: $("gender").value,
+    tz: $("tz").value,
+    place: $("place").value || null
+  };
+  const faceBody = { image_base64: imageB64 || "abc" };
+
+  try{
+    out.textContent = "사주 계산 중...";
+    const saju = await postJSON("/v1/saju/compute", sajuBody);
+
+    out.textContent += "\n관상 분석 중...";
+    const face = await postJSON("/v1/face/extract", faceBody);
+
+    out.textContent += "\n리포트 합성 중...";
+    const rep  = await postJSON("/v1/report/compose", {saju, face, goal:$("goal").value, locale:"ko-KR"});
+
+    out.textContent = JSON.stringify(rep, null, 2);
+  }catch(e){
+    console.error(e);
+    out.textContent = "에러:\n" + (e?.message || e);
+  }
+};
+</script>
+
 </body></html>
+
