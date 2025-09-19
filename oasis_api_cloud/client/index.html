@@ -1,54 +1,76 @@
-<!doctype html><html lang="ko"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>오아시스 운세 — 클라우드 미니앱</title>
-<style>
-  body{font-family:sans-serif;max-width:920px;margin:20px auto;padding:0 12px}
-  .card{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-top:12px}
-  .row{display:flex;gap:8px;flex-wrap:wrap}
-  input,select,button{padding:8px;border:1px solid #cbd5e1;border-radius:8px}
-  button{cursor:pointer} img{max-width:200px;border-radius:8px;margin-top:8px}
-  pre{white-space:pre-wrap;background:#f6f8fa;padding:12px;border-radius:8px}
-</style>
-</head><body>
-<h1>오아시스 운세 — 클라우드 미니앱</h1>
-<div class="card">
-  <div class="row">
-    <label>출생(UTC) <input id="birth" type="datetime-local" value="1990-05-10T14:30"></label>
-    <label>달력 <select id="calendar"><option value="solar" selected>양력</option><option value="lunar">음력</option><option value="lunar_leap">윤달</option></select></label>
-    <label>성별 <select id="gender"><option value="unknown">선택안함</option><option value="male">남성</option><option value="female">여성</option></select></label>
-    <label>TZ <input id="tz" value="Asia/Seoul"></label>
-    <label>출생지 <input id="place" value="Seoul"></label>
-    <label>목표 <select id="goal"><option value="business" selected>사업/커리어</option><option value="romance">연애</option><option value="wealth">재물</option><option value="health">건강</option><option value="social">대인관계</option></select></label>
-  </div>
-  <div style="margin-top:8px">
-    <label>관상 사진 업로드 <input id="file" type="file" accept="image/*"></label>
-    <div><img id="preview" style="display:none"></div>
-  </div>
-  <div style="margin-top:12px"><button id="go">분석 시작</button></div>
-</div>
-<div class="card"><pre id="out"></pre></div>
-<script>
-const $=id=>document.getElementById(id); let imageB64=null;
-$("file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;
-  const r=new FileReader(); r.onload=()=>{imageB64=r.result; $("preview").src=imageB64; $("preview").style.display="inline-block";};
-  r.readAsDataURL(f);
-});
-$("go").onclick=async()=>{const out=$("out"); const birthIso=new Date($("birth").value).toISOString();
-  const sajuBody={birth_ts:birthIso,calendar:$("calendar").value,gender:$("gender").value,tz:$("tz").value,place:$("place").value||null};
-  const faceBody={image_base64:imageB64||"abc"};
-  try{
-    out.textContent="사주 계산 중..."; const saju=await fetch("/v1/saju/compute",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sajuBody)}).then(r=>r.json());
-    out.textContent+="\n관상 분석 중..."; const face=await fetch("/v1/face/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(faceBody)}).then(r=>r.json());
-    out.textContent+="\n리포트 합성 중..."; const rep=await fetch("/v1/report/compose",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({saju,face,goal:$("goal").value,locale:"ko-KR"})}).then(r=>r.json());
-    out.textContent=JSON.stringify(rep,null,2);
-  }catch(e){ out.textContent="에러: "+(e?.message||e); }
-};
-</script>
-  <script>
-const $=id=>document.getElementById(id);
-let imageB64=null;
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>오아시스 운세 — 클라우드 미니앱</title>
+  <style>
+    body{font-family:sans-serif;max-width:920px;margin:20px auto;padding:0 12px}
+    .card{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-top:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    input,select,button{padding:8px;border:1px solid #cbd5e1;border-radius:8px}
+    button{cursor:pointer}
+    img{max-width:200px;border-radius:8px;margin-top:8px}
+    pre{white-space:pre-wrap;background:#f6f8fa;padding:12px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <h1>오아시스 운세 — 클라우드 미니앱</h1>
 
-// ① 안전한 POST(JSON) 헬퍼: JSON 아니면 텍스트로 에러 표시
+  <div class="card">
+    <div class="row">
+      <label>출생(UTC)
+        <input id="birth" type="datetime-local" value="1990-05-10T14:30">
+      </label>
+      <label>달력
+        <select id="calendar">
+          <option value="solar" selected>양력</option>
+          <option value="lunar">음력</option>
+          <option value="lunar_leap">윤달</option>
+        </select>
+      </label>
+      <label>성별
+        <select id="gender">
+          <option value="unknown">선택안함</option>
+          <option value="male">남성</option>
+          <option value="female">여성</option>
+        </select>
+      </label>
+      <label>TZ
+        <input id="tz" value="Asia/Seoul">
+      </label>
+      <label>출생지
+        <input id="place" value="Seoul">
+      </label>
+      <label>목표
+        <select id="goal">
+          <option value="business" selected>사업/커리어</option>
+          <option value="romance">연애</option>
+          <option value="wealth">재물</option>
+          <option value="health">건강</option>
+          <option value="social">대인관계</option>
+        </select>
+      </label>
+    </div>
+
+    <div style="margin-top:8px">
+      <label>관상 사진 업로드
+        <input id="file" type="file" accept="image/*">
+      </label>
+      <div><img id="preview" style="display:none"></div>
+    </div>
+
+    <div style="margin-top:12px">
+      <button id="go">분석 시작</button>
+    </div>
+  </div>
+
+  <div class="card"><pre id="out"></pre></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let imageB64 = null;
+
+// 안전한 POST(JSON) 헬퍼: JSON 이외 응답(HTML 에러 페이지 등)도 메시지로 보여줌
 async function postJSON(url, body){
   const r = await fetch(url, {
     method: "POST",
@@ -61,14 +83,13 @@ async function postJSON(url, body){
     throw new Error(`HTTP ${r.status} ${r.statusText}\n${txt.slice(0,300)}`);
   }
   if(ct.includes("application/json")){
-    try { return JSON.parse(txt); } 
+    try { return JSON.parse(txt); }
     catch(e){ throw new Error(`JSON 파싱 실패\n${txt.slice(0,300)}`); }
   }
-  // JSON 아닌 응답(HTML 등)도 그대로 보여줌
   throw new Error(`서버가 JSON이 아닌 응답을 보냈습니다.\n${txt.slice(0,300)}`);
 }
 
-// ② 이미지 축소 전송(용량↓): 640px 기준 JPEG 변환
+// 이미지 파일 → (최대 640px) 리사이즈 → JPEG dataURL로 변환
 async function fileToDataURLResized(file, maxSide=640, quality=0.8){
   const dataUrl = await new Promise((res,rej)=>{
     const fr = new FileReader();
@@ -76,19 +97,16 @@ async function fileToDataURLResized(file, maxSide=640, quality=0.8){
     fr.onerror = rej;
     fr.readAsDataURL(file);
   });
-  // 이미지 로드
   const img = await new Promise((res,rej)=>{
     const im = new Image();
     im.onload = ()=> res(im);
     im.onerror = rej;
     im.src = dataUrl;
   });
-  // 리사이즈 계산
-  let {width:w, height:h} = img;
-  const scale = Math.min(1, maxSide/Math.max(w,h));
+  let w = img.width, h = img.height;
+  const scale = Math.min(1, maxSide / Math.max(w,h));
   const nw = Math.max(1, Math.round(w*scale));
   const nh = Math.max(1, Math.round(h*scale));
-  // 캔버스 리사이즈 + JPEG로 압축
   const canvas = document.createElement("canvas");
   canvas.width = nw; canvas.height = nh;
   const ctx = canvas.getContext("2d");
@@ -96,7 +114,7 @@ async function fileToDataURLResized(file, maxSide=640, quality=0.8){
   return canvas.toDataURL("image/jpeg", quality); // data:image/jpeg;base64,...
 }
 
-// 파일 선택 → 미리보기 + 축소본 만들기
+// 파일 선택 시: 미리보기 + 축소본 저장
 $("file").addEventListener("change", async (e)=>{
   const f = e.target.files[0];
   if(!f) return;
@@ -113,6 +131,7 @@ $("file").addEventListener("change", async (e)=>{
   }
 });
 
+// 분석 시작
 $("go").onclick = async ()=>{
   const out = $("out");
   out.textContent = "";
@@ -135,7 +154,7 @@ $("go").onclick = async ()=>{
     const face = await postJSON("/v1/face/extract", faceBody);
 
     out.textContent += "\n리포트 합성 중...";
-    const rep  = await postJSON("/v1/report/compose", {saju, face, goal:$("goal").value, locale:"ko-KR"});
+    const rep  = await postJSON("/v1/report/compose", { saju, face, goal: $("goal").value, locale: "ko-KR" });
 
     out.textContent = JSON.stringify(rep, null, 2);
   }catch(e){
@@ -144,6 +163,5 @@ $("go").onclick = async ()=>{
   }
 };
 </script>
-
-</body></html>
-
+</body>
+</html>
